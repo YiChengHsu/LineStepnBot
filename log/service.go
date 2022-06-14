@@ -1,13 +1,12 @@
 package log
 
 import (
+	"encoding/json"
 	"fmt"
-	"os"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
 )
+
+var timezone *time.Location = time.Local
 
 func SetTimezone(loc *time.Location) {
 	timezone = loc
@@ -23,8 +22,12 @@ func Error(args ...interface{}) {
 
 func Fatal(args ...interface{}) {
 	log(levelFatal, args...)
-	time.Sleep(2 * time.Second)
-	os.Exit(1)
+}
+
+func Debug(args ...interface{}) {
+	data, _ := json.MarshalIndent(args, "", " ")
+	log(levelInfo)
+	fmt.Println(string(data))
 }
 
 func log(level string, args ...interface{}) {
@@ -38,31 +41,4 @@ func log(level string, args ...interface{}) {
 	}
 
 	fmt.Println(msg)
-}
-
-func RequestLogger() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) (err error) {
-			req := c.Request()
-			requestId := uuid.NewString()
-			c.Set("requestId", requestId)
-			logLabel := fmt.Sprintf("%s%s ", LabelMonitor, requestId)
-			Info(logLabel, fmt.Sprintf("[%s] %s %s %s", req.Method, req.URL, req.UserAgent(), req.Referer()))
-
-			if err = next(c); err != nil {
-				return
-			}
-
-			res := c.Response()
-			logContent := fmt.Sprintf(
-				"Status=%d ClientAddr=%s Response=%+v", res.Status, c.RealIP(), c.Get("response"),
-			)
-
-			if res.Status < 400 {
-				Info(logLabel, logContent)
-			}
-
-			return
-		}
-	}
 }

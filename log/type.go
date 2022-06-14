@@ -1,15 +1,11 @@
 package log
 
-import "time"
-
 const (
-	LabelStartup  string = "STARTUP   "
-	LabelMonitor  string = "MONITOR   "
-	LabelShutdown string = "SHUTDOWN  "
+	LabelStartup  string = "STARTUP     "
+	LabelMonitor  string = "MONITOR     "
+	LabelShutdown string = "SHUTDOWN    "
 
 	levelInfo  string = "[INFO ]"
 	levelError string = "[ERROR]"
 	levelFatal string = "[FATAL]"
 )
-
-var timezone *time.Location = time.Local
