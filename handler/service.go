@@ -2,9 +2,10 @@ package handler
 
 import (
 	"fmt"
+	"math"
 	"net/http"
-	"strings"
 
+	"line-stepn-bot/config"
 	"line-stepn-bot/currency"
 	"line-stepn-bot/log"
 	"line-stepn-bot/mylinebot"
@@ -13,36 +14,37 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-var getMessage = "!s"
+var getMessage = "$"
 
 func LineHandler() gin.HandlerFunc {
-
-	var myBot = mylinebot.Init()
-
 	return func(c *gin.Context) {
+
+		myBot := mylinebot.MyLineBot
 		events, err := myBot.ParseRequest(c.Request)
+
 		if err != nil {
 			if err == linebot.ErrInvalidSignature {
-				c.JSON(http.StatusBadRequest, nil)
+				c.JSON(http.StatusBadRequest, err)
 			} else {
-				c.JSON(http.StatusInternalServerError, nil)
+				c.JSON(http.StatusInternalServerError, err)
 			}
 		}
 
 		for _, event := range events {
+			log.Info(event.Source.UserID)
+			log.Info(event.Source.GroupID)
 			switch event.Type {
 			case linebot.EventTypeMessage:
 				switch message := event.Message.(type) {
 				case *linebot.TextMessage:
 
-					log.Info(message)
-
 					if message.Text == getMessage {
+
 						if _, err := myBot.ReplyMessage(
 							event.ReplyToken,
-							NewEmojiMsg(message),
+							NewEmojiMsg(),
 						).Do(); err != nil {
-							log.Error(err)
+							log.Error("here", err)
 						}
 					}
 				case *linebot.ImageMessage:
@@ -63,11 +65,11 @@ func LineHandler() gin.HandlerFunc {
 			default:
 				log.Info("Unknown event: %v", event)
 			}
-		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"success": events,
-		})
+			c.JSON(http.StatusOK, gin.H{
+				"success": events,
+			})
+		}
 
 	}
 }
@@ -78,44 +80,97 @@ func CurrencyHandler(c *gin.Context) {
 	})
 }
 
-func NewEmojiMsg(msg *linebot.TextMessage) linebot.SendingMessage {
+func DetectHandler() (err error) {
 
-	emojiIndex := 0
-	emojiProductId := "5ac21ef5031a6752fb806d5e"
+	log.Info("Start to detect!")
 
-	repMsg := linebot.NewTextMessage("現在幣價資訊:\n\n")
-	totalMsg := &repMsg.Text
+	for _, data := range currency.CurrencyData {
+
+		hourChange := data.MarketData.PriceChangePercentage1H.USD
+
+		if hourChange > 3 || hourChange < -3 {
+
+			template := "🥬🥬🥬 韭菜警報 🥬🥬🥬 \n\n"
+			var light, arrow, trend, zora string
+
+			switch {
+			case hourChange > 3:
+				light = "💚"
+				arrow = "📈"
+				trend = "漲"
+				zora = "我還沒上車啊 💔💔💔"
+			case hourChange < 3:
+				light = "❤️"
+				arrow = "📉"
+				trend = "跌"
+				zora = "塊陶啊 🏃💨💨💨"
+			}
+
+			template = fmt.Sprintf("%s%s %s 一小時內%s了%.2f%%\n目前價格: %.2f $ \n24H漲跌: %.2f %% %s\n\nZora 表示: %s",
+				template,
+				light,
+				data.Name,
+				trend,
+				math.Abs(hourChange),
+				data.MarketData.CurrencyPrice.USD,
+				data.MarketData.PriceChangePercentage24H.USD,
+				arrow,
+				zora,
+			)
+
+			for _, member := range config.Global.LineBot.AlertAccounts {
+				_, err = mylinebot.MyLineBot.PushMessage(
+					member,
+					linebot.NewTextMessage(template),
+				).Do()
+
+				if err != nil {
+					err = fmt.Errorf("ALERT ERROR: %w", err)
+					return
+				}
+			}
+
+		}
+	}
+
+	return
+}
+
+func NewEmojiMsg() linebot.SendingMessage {
+
+	// productId := "5ac21ef5031a6752fb806d5e"
+	// var emojiArr []string
+
+	totalMsg := "🥰 親愛的韭菜\n現在幣價資訊\n\n"
 
 	for _, currency := range currency.CurrencyData {
 
 		data := currency.MarketData
 
-		singleText := fmt.Sprintf(
-			"%s:\n價格:  %.2f $ \n 24小時漲跌:  %.2f\n\n",
-			strings.ToUpper(currency.Symbol),
-			data.CurrencyPrice.USD,
-			data.PriceChangePercentage24H.USD,
-		)
-
-		var emojiId string
+		var arrow string
+		var light string
 		switch change := data.PriceChangePercentage24H.USD; {
 		case change > 0:
-			emojiId = "050"
+			light = "💚"
+			arrow = "📈"
 		case change <= 0:
-			emojiId = "037"
+			light = "❤️"
+			arrow = "📉"
 		}
 
-		emoji := linebot.Emoji{
-			Index:     emojiIndex,
-			ProductID: emojiProductId,
-			EmojiID:   emojiId,
-		}
+		singleText := fmt.Sprintf(
+			"%s %s\n價格:  %.2f $ \n24小時漲跌: %.2f %% %s\n\n",
+			light,
+			currency.Name,
+			data.CurrencyPrice.USD,
+			data.PriceChangePercentage24H.USD,
+			arrow,
+		)
 
-		*totalMsg = fmt.Sprint(repMsg, singleText)
-		repMsg.AddEmoji(&emoji)
-
-		emojiIndex++
+		totalMsg += singleText
 	}
 
-	return repMsg
+	totalMsg += "Zora 關心你的荷包 😘😘😘"
+
+	return linebot.NewTextMessage(totalMsg)
 }

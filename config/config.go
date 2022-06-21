@@ -122,8 +122,8 @@ func InitConfig() (err error) {
 
 	// load alert line account
 	accountStrings := os.Getenv("LINE_ALERT_ACCOUNTS")
-	Global.AllowOrigins = strings.Split(accountStrings, ",")
-	if err = validation.Validate(Global.AllowOrigins, validation.Required); err != nil {
+	Global.LineBot.AlertAccounts = strings.Split(accountStrings, ",")
+	if err = validation.Validate(Global.LineBot.AlertAccounts, validation.Required); err != nil {
 		err = fmt.Errorf(`"LINE_ALERT_ACCOUNTS" %w`, err)
 		return
 	}

@@ -15,6 +15,6 @@ type MarketData struct {
 }
 
 type FiatPrice struct {
-	TWD float32 `json:"twd"`
-	USD float32 `json:"usd"`
+	TWD float64 `json:"twd"`
+	USD float64 `json:"usd"`
 }

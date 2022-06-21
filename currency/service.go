@@ -29,10 +29,19 @@ func SyncCurrency() {
 			log.Error(fmt.Errorf("[Sync Error]%w", err))
 		}
 
+		if data.Name == "STEPN Green Satoshi Token on Solana" {
+			data.Name = "GST on Solana"
+		}
+
+		if data.Name == "STEPN" {
+			data.Name = "GMT"
+		}
+
 		CurrentCurrencyData = append(CurrentCurrencyData, data)
 	}
 
 	CurrencyData = CurrentCurrencyData
+
 }
 
 func RequestCurrency(currency string) (data Currency, err error) {

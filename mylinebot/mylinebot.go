@@ -1,25 +1,23 @@
 package mylinebot
 
 import (
+	"fmt"
 	"line-stepn-bot/config"
-	"line-stepn-bot/log"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-var myLineBot *linebot.Client
+var MyLineBot *linebot.Client
 
-func Init() *linebot.Client {
+func Init() (err error) {
 
-	log.Info(config.Global)
-
-	myLineBot, err := linebot.New(
+	MyLineBot, err = linebot.New(
 		config.Global.LineBot.ChannelSecret,
 		config.Global.LineBot.ChannelToken,
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		err = fmt.Errorf(`line bot set up error: %w`, err)
 	}
-	return myLineBot
+	return
 }
